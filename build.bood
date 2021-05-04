@@ -1,7 +1,6 @@
 go_binary {
   name: "server",
-  // TODO: Відкорегуйте ім'я пакета.
-  pkg: "github.com/roman-mazur/design-practice-2-template/cmd/server",
+  pkg: "github.com/pavlovskyive/kpi-lab-2-balancer/cmd/server",
   srcs: [
     "httptools/**/*.go",
     "signal/**/*.go",
@@ -11,8 +10,7 @@ go_binary {
 
 go_binary {
   name: "lb",
-  // TODO: Відкорегуйте ім'я пакета.
-  pkg: "github.com/roman-mazur/design-practice-2-template/cmd/lb",
+  pkg: "github.com/pavlovskyive/kpi-lab-2-balancer/cmd/lb",
   srcs: [
     "httptools/**/*.go",
     "signal/**/*.go",

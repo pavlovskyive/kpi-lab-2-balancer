@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -9,26 +10,41 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/roman-mazur/design-practice-2-template/httptools"
-	"github.com/roman-mazur/design-practice-2-template/signal"
+	"github.com/pavlovskyive/kpi-lab-2-balancer/httptools"
+	"github.com/pavlovskyive/kpi-lab-2-balancer/signal"
 )
 
 var (
-	port = flag.Int("port", 8090, "load balancer port")
+	port       = flag.Int("port", 8090, "load balancer port")
 	timeoutSec = flag.Int("timeout-sec", 3, "request timeout time in seconds")
-	https = flag.Bool("https", false, "whether backends support HTTPs")
+	https      = flag.Bool("https", false, "whether backends support HTTPs")
 
 	traceEnabled = flag.Bool("trace", false, "whether to include tracing information into responses")
 )
 
 var (
-	timeout = time.Duration(*timeoutSec) * time.Second
-	serversPool = []string{
-		"server1:8080",
-		"server2:8080",
-		"server3:8080",
+	timeout     = time.Duration(*timeoutSec) * time.Second
+	serversPool = []*server{
+		{
+			host:      "server1:8080",
+			isHealthy: true,
+		},
+		{
+			host:      "server2:8080",
+			isHealthy: true,
+		},
+		{
+			host:      "server3:8080",
+			isHealthy: true,
+		},
 	}
 )
+
+type server struct {
+	host      string
+	isHealthy bool
+	traffic   int
+}
 
 func scheme() string {
 	if *https {
@@ -51,13 +67,13 @@ func health(dst string) bool {
 	return true
 }
 
-func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
+func forward(dst *server, rw http.ResponseWriter, r *http.Request) error {
 	ctx, _ := context.WithTimeout(r.Context(), timeout)
 	fwdRequest := r.Clone(ctx)
 	fwdRequest.RequestURI = ""
-	fwdRequest.URL.Host = dst
+	fwdRequest.URL.Host = dst.host
 	fwdRequest.URL.Scheme = scheme()
-	fwdRequest.Host = dst
+	fwdRequest.Host = dst.host
 
 	resp, err := http.DefaultClient.Do(fwdRequest)
 	if err == nil {
@@ -67,9 +83,10 @@ func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
 			}
 		}
 		if *traceEnabled {
-			rw.Header().Set("lb-from", dst)
+			rw.Header().Set("lb-from", dst.host)
 		}
-		log.Println("fwd", resp.StatusCode, resp.Request.URL)
+		log.Println("fwd", resp.StatusCode, resp.Request.URL, "bytes:", resp.ContentLength)
+		dst.traffic += int(resp.ContentLength)
 		rw.WriteHeader(resp.StatusCode)
 		defer resp.Body.Close()
 		_, err := io.Copy(rw, resp.Body)
@@ -78,10 +95,35 @@ func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
 		}
 		return nil
 	} else {
-		log.Printf("Failed to get response from %s: %s", dst, err)
+		log.Printf("Failed to get response from %s: %s", dst.host, err)
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		return err
 	}
+}
+
+func balance(servers []*server) (*server, error) {
+	var healthyServers []*server
+
+	for _, server := range servers {
+		if server.isHealthy {
+			healthyServers = append(healthyServers, server)
+		}
+	}
+
+	if len(healthyServers) == 0 {
+		return nil, errors.New("no healthy servers at moment")
+	}
+
+	optimalServer := healthyServers[0]
+
+	for i, server := range healthyServers {
+		if i == 0 || server.traffic < optimalServer.traffic {
+			optimalServer = server
+		}
+	}
+
+	return optimalServer, nil
+
 }
 
 func main() {
@@ -92,14 +134,31 @@ func main() {
 		server := server
 		go func() {
 			for range time.Tick(10 * time.Second) {
-				log.Println(server, health(server))
+				server.isHealthy = health(server.host)
+
+				serverStatus := ""
+				if server.isHealthy {
+					serverStatus = "healthy"
+				} else {
+					serverStatus = "down"
+				}
+
+				log.Println("server:", server.host, "status:", serverStatus, "traffic:", server.traffic)
 			}
 		}()
 	}
 
 	frontend := httptools.CreateServer(*port, http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		// TODO: Рееалізуйте свій алгоритм балансувальника.
-		forward(serversPool[0], rw, r)
+		optimalServer, err := balance(serversPool)
+
+		if err != nil {
+			log.Printf("503: no availible servers")
+			rw.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
+		forward(optimalServer, rw, r)
 	}))
 
 	log.Println("Starting load balancer...")

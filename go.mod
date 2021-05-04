@@ -1,3 +1,3 @@
-module github.com/roman-mazur/design-practice-2-template
+module github.com/pavlovskyive/kpi-lab-2-balancer
 
 go 1.15
