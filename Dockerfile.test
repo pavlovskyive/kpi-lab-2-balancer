@@ -2,11 +2,13 @@ FROM golang:1.15 as build
 
 RUN apt-get update && apt-get install -y ninja-build
 
-RUN go get -u github.com/pavlovskyive/kpi-lab-1/build/cmd/bood
+WORKDIR /go/src
+RUN git clone https://github.com/pavlovskyive/kpi-lab-1
+WORKDIR /go/src/kpi-lab-1
+RUN go get -u ./build/cmd/bood
 
-WORKDIR /go/src/practice-2
+WORKDIR /go/src/kpi-lab-2
 COPY . .
 
 # TODO: Замініть на запуск bood, який призводить до виконання інтеграційних тестів.
-# ENTRYPOINT ["bood", "integration-tests"]
-ENTRYPOINT ["echo", "ok"]
+ENTRYPOINT ["bood", "out/bin/integration"]

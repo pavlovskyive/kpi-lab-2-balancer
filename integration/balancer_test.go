@@ -5,21 +5,41 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-const baseAddress = "http://balancer:8090"
+const baseAddress = "http://localhost:8090"
 
 var client = http.Client{
 	Timeout: 3 * time.Second,
 }
 
 func TestBalancer(t *testing.T) {
-	// TODO: Реалізуйте інтеграційний тест для балансувальникка.
-	resp, err := client.Get(fmt.Sprintf("%s/api/v1/some-data", baseAddress))
-	if err != nil {
-		t.Error(err)
+	assert := assert.New(t)
+
+	serverPool := []string{
+		"server1:8080",
+		"server2:8080",
+		"server3:8080",
 	}
-	t.Logf("response from [%s]", resp.Header.Get("lb-from"))
+
+	authors := make(chan string, 10)
+	for i := 0; i < 10; i++ {
+		go func() {
+			resp, err := client.Get(fmt.Sprintf("%s/api/v1/some-data", baseAddress))
+			if err != nil {
+				assert.Fail(err.Error())
+			}
+			respServer := resp.Header.Get("Lb-from")
+			authors <- respServer
+		}()
+		time.Sleep(time.Duration(20) * time.Millisecond)
+	}
+	for i := 0; i < 10; i++ {
+		auth := <-authors
+		assert.Equal(auth, serverPool[i%3])
+	}
 }
 
 func BenchmarkBalancer(b *testing.B) {

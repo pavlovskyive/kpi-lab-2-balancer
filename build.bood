@@ -11,13 +11,16 @@ go_binary {
 go_tested_binary {
   name: "lb",
   pkg: "github.com/pavlovskyive/kpi-lab-2-balancer/cmd/lb",
-  srcs: [
-    "httptools/**/*.go",
-    "signal/**/*.go",
-    "cmd/lb/*.go"
-  ],
-  testPkg: "./cmd/lb/...",
+  srcs: ["cmd/lb/*.go"],
+  testPkg: "./cmd/lb",
   testSrcs: ["./cmd/lb/*_test.go"]
 }
 
-// TODO: Додайте модуль для інтеграційних тестів.
+go_tested_binary {
+    name: "integration",
+    pkg: "github.com/pavlovskyive/kpi-lab-2-balancer/cmd/lb",
+    srcs: ["./cmd/lb/*.go"],
+    testPkg: "./integration",
+    testSrcs: ["./integration/*_test.go"],
+    optional: true
+}
