@@ -43,5 +43,11 @@ func TestBalancer(t *testing.T) {
 }
 
 func BenchmarkBalancer(b *testing.B) {
-	// TODO: Реалізуйте інтеграційний бенчмарк для балансувальникка.
+	assert := assert.New(b)
+
+	for i := 0; i < b.N; i++ {
+		resp, err := client.Get(fmt.Sprintf("%s/api/v1/some-data", baseAddress))
+		assert.Nil(err)
+		assert.Equal(resp.StatusCode, http.StatusOK)
+	}
 }
