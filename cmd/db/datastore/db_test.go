@@ -20,13 +20,13 @@ func TestDb_Put(t *testing.T) {
 	}
 	defer db.Close()
 
-	pairs := [][]string {
+	pairs := [][]string{
 		{"key1", "value1"},
 		{"key2", "value2"},
 		{"key3", "value3"},
 	}
 
-	outFile, err := os.Open(filepath.Join(dir, outFileName))
+	outFile, err := os.Open(filepath.Join(dir, segPreffix+segActive))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestDb_Put(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if size1 * 2 != outInfo.Size() {
+		if size1*2 != outInfo.Size() {
 			t.Errorf("Unexpected size (%d vs %d)", size1, outInfo.Size())
 		}
 	})
