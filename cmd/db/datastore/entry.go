@@ -10,6 +10,11 @@ type entry struct {
 	key, value string
 }
 
+type entryChan struct {
+	entry   *entry
+	resChan chan error
+}
+
 func (e *entry) Encode() []byte {
 	kl := len(e.key)
 	vl := len(e.value)
