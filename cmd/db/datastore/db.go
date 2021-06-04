@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -109,7 +110,8 @@ func (db *Db) Close() error {
 
 func (db *Db) Put(key, value string) error {
 	resChan := make(chan error)
-	e := &entry{key: key, value: value}
+	hash := sha1.Sum([]byte(value))
+	e := &entry{key: key, value: value, hash: hash[:]}
 
 	db.entryChan <- entryChan{
 		entry:   e,
@@ -208,9 +210,11 @@ func (db *Db) merge() {
 	}
 	for k, s := range keysSegments {
 		value, _ := s.get(k)
+		hash := sha1.Sum([]byte(value))
 		e := &entry{
 			key:   k,
 			value: value,
+			hash:  hash[:],
 		}
 		n, err := f.Write(e.Encode())
 		if err != nil {

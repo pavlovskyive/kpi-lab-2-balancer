@@ -97,7 +97,7 @@ func TestDb_Segmentation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
-	db, err := NewDBSized(dir, 44, false)
+	db, err := NewDBSized(dir, 50, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestDb_Merge(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
-	db, err := NewDBSized(dir, 40, false)
+	db, err := NewDBSized(dir, 80, false)
 	if err != nil {
 		t.Fatal(err)
 	}

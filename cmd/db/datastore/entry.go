@@ -2,12 +2,15 @@ package datastore
 
 import (
 	"bufio"
+	"bytes"
+	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
 )
 
 type entry struct {
 	key, value string
+	hash       []byte
 }
 
 type entryChan struct {
@@ -18,13 +21,19 @@ type entryChan struct {
 func (e *entry) Encode() []byte {
 	kl := len(e.key)
 	vl := len(e.value)
-	size := kl + vl + 12
+	hl := len(e.hash)
+
+	size := kl + vl + hl + 16
+
 	res := make([]byte, size)
+
 	binary.LittleEndian.PutUint32(res, uint32(size))
 	binary.LittleEndian.PutUint32(res[4:], uint32(kl))
 	copy(res[8:], e.key)
 	binary.LittleEndian.PutUint32(res[kl+8:], uint32(vl))
 	copy(res[kl+12:], e.value)
+	binary.LittleEndian.PutUint32(res[kl+vl+12:], uint32(hl))
+	copy(res[kl+vl+16:], e.hash)
 	return res
 }
 
@@ -38,6 +47,11 @@ func (e *entry) Decode(input []byte) {
 	valBuf := make([]byte, vl)
 	copy(valBuf, input[kl+12:kl+12+vl])
 	e.value = string(valBuf)
+
+	hl := binary.LittleEndian.Uint32(input[kl+vl+12:])
+	hashBuf := make([]byte, hl)
+	copy(hashBuf, input[kl+vl+16:kl+vl+16+hl])
+	e.hash = hashBuf
 }
 
 func readValue(in *bufio.Reader) (string, error) {
@@ -68,6 +82,32 @@ func readValue(in *bufio.Reader) (string, error) {
 	}
 	if n != valSize {
 		return "", fmt.Errorf("can't read value bytes (read %d, expected %d)", n, valSize)
+	}
+
+	value := string(data)
+	hash := sha1.Sum([]byte(value))
+
+	header, err = in.Peek(4)
+	if err != nil {
+		return "", err
+	}
+	hashSize := int(binary.LittleEndian.Uint32(header))
+	_, err = in.Discard(4)
+	if err != nil {
+		return "", err
+	}
+
+	hashSaved := make([]byte, hashSize)
+	n, err = in.Read(hashSaved)
+	if err != nil {
+		return "", err
+	}
+	if n != hashSize {
+		return "", fmt.Errorf("can't read value bytes (read %d, expected %d)", n, valSize)
+	}
+
+	if !bytes.Equal(hash[:], hashSaved) {
+		return "", fmt.Errorf("hashes not equal")
 	}
 
 	return string(data), nil
